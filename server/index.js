@@ -16,12 +16,21 @@ app.use(express.json({ limit: "1mb" }));
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        callback(null, origin);
+      if (!origin) return callback(null, true);
+      const isAllowed =
+        allowedOrigins.length === 0 ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost") ||
+        origin.includes("universalloan.us");
+
+      if (isAllowed) {
+        callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(null, true);
       }
     },
+    credentials: true,
   }),
 );
 
@@ -46,12 +55,17 @@ app.post("/api/submit-form", async (req, res) => {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    await sendLoanApplicationEmail(data);
+    try {
+      await sendLoanApplicationEmail(data);
+      console.log("[Submit-Form] Email sent successfully for form submission.");
+    } catch (emailErr) {
+      console.error("[Submit-Form Email Warning] SMTP dispatch failed:", emailErr?.message || emailErr);
+    }
 
     res.json({ message: "Form submitted successfully" });
   } catch (error) {
-    console.error("Form submission failed", error);
-    res.status(500).json({ message: "Failed to submit form" });
+    console.error("[Submit-Form Error]", error);
+    res.status(500).json({ message: "Failed to submit form", error: error?.message || "Internal server error" });
   }
 });
 

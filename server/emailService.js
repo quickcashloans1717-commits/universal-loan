@@ -1,27 +1,24 @@
 import nodemailer from "nodemailer";
 
-const {
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_USER,
-  SMTP_PASS,
-  RECIPIENT_EMAIL,
-  EMAIL_FROM_NAME = "Loan Applications",
-} = process.env;
+const getTransporter = () => {
+  const host = process.env.SMTP_HOST || "server104.web-hosting.com";
+  const port = Number(process.env.SMTP_PORT || 465);
+  const user = process.env.SMTP_USER || "ul@universalloan.us";
+  const pass = process.env.SMTP_PASS || "Qpo1OnTLhpM2UsOn";
 
-if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !RECIPIENT_EMAIL) {
-  console.warn("[emailService] Missing SMTP configuration. Check environment variables.");
-}
-
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: Number(SMTP_PORT || 587),
-  secure: Number(SMTP_PORT) === 465,
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-});
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: {
+      user,
+      pass,
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
+  });
+};
 
 const formatHTML = (data) => `
 <!DOCTYPE html>
@@ -94,14 +91,16 @@ ${Object.entries(data).map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').replace(/
 `;
 
 export const sendLoanApplicationEmail = async (data) => {
-  if (!RECIPIENT_EMAIL) {
-    throw new Error("Recipient email is not configured");
-  }
+  const recipientEmail = process.env.RECIPIENT_EMAIL || "ul@universalloan.us";
+  const emailFromName = process.env.EMAIL_FROM_NAME || "Universal Loan Applications";
+  const smtpUser = process.env.SMTP_USER || "ul@universalloan.us";
+
+  const transporter = getTransporter();
 
   await transporter.sendMail({
-    from: `${EMAIL_FROM_NAME} <${SMTP_USER}>`,
-    to: RECIPIENT_EMAIL,
-    subject: "New Loan Application Received",
+    from: `"${emailFromName}" <${smtpUser}>`,
+    to: recipientEmail,
+    subject: `New Loan Application - ${data.firstName || data['First Name'] || 'Applicant'} ${data.lastName || data['Last Name'] || ''}`.trim(),
     text: formatText(data),
     html: formatHTML(data),
   });
